@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  tada-api:
+    image: tada-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=all
+      - TADA_ENCODER_PATH=HumeAI/tada-codec
+      - TADA_MODEL_PATH=HumeAI/tada-1b
+      # HF_HOME is already set in the Dockerfile to /models, but you can override here
+      - HF_HOME=/models
+    volumes:
+      # Mount a local directory to /models to cache the downloaded weights persistently
+      - ./model_cache:/models
+    deploy:
+      mode: replicated
+      replicas: 1
+      # Example of how to add GPU reservation for Swarm
+      # This requires nvidia-docker2 and swarm GPU support to be configured on the nodes
+      # resources:
+      #   reservations:
+      #     devices:
+      #       - driver: nvidia
+      #         capabilities: [gpu]
+      #         count: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.3
+        order: stop-first
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
