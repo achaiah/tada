@@ -180,14 +180,16 @@ HF_TOKEN="your_hf_token" docker stack deploy -c docker-compose.yml tada-stack
 ```
 
 #### Manual Model Download
-If you want to download the models manually rather than having the container fetch them at runtime, you can use the `hf`:
+If you want to download the models manually rather than having the container fetch them at runtime, you can use the `hf` CLI:
 ```bash
 export HF_HOME=./model_cache
 hf login --token "your_hf_token"
 hf download HumeAI/tada-1b
 hf download HumeAI/tada-codec
 ```
-Then, you can deploy the Docker container—it will find the cached models in `./model_cache` and won't need to download them itself!
+Then, you can deploy the Docker container—it will find the cached models in `./model_cache` and won't need to download them itself.
+
+If you have already downloaded the base `Llama-3.2-1B` model to a custom folder and just want to point the API to its configuration without relying on Hugging Face's cache structure, you can bind-mount that directory into the container and set `LLAMA_LOCAL_PATH` in `docker-compose.yml` or via `docker run -e LLAMA_LOCAL_PATH=/mounted/llama/dir`.
 
 ### 3. Usage
 The API exposes a `/generate` endpoint. All model weights (default: `HumeAI/tada-1b` and `HumeAI/tada-codec`) are downloaded on the first run and cached in the `./model_cache` volume to speed up subsequent starts.

@@ -15,6 +15,8 @@ services:
       # Required to download the gated Llama models.
       # You can pass this at runtime: HF_TOKEN=your_token docker stack deploy ...
       - HF_TOKEN=${HF_TOKEN}
+      # If you already downloaded Llama 3.2 1B manually, point to its mounted directory
+      # - LLAMA_LOCAL_PATH=/models/models--meta-llama--Llama-3.2-1B/snapshots/...
       # HF_HOME is already set in the Dockerfile to /models, but you can override here
       - HF_HOME=/models
     volumes:

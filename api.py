@@ -19,15 +19,30 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 encoder = None
 model = None
 
+
 @app.on_event("startup")
 async def startup_event():
     global encoder, model
     print(f"Loading models on {device}...")
-    
+
+    # Patch AutoTokenizer to support local Llama tokenizer paths
+    from transformers import AutoTokenizer
+
+    original_from_pretrained = AutoTokenizer.from_pretrained
+
+    def patched_from_pretrained(pretrained_model_name_or_path, *args, **kwargs):
+        if pretrained_model_name_or_path == "meta-llama/Llama-3.2-1B":
+            local_path = os.environ.get("LLAMA_LOCAL_PATH")
+            if local_path and os.path.exists(local_path):
+                pretrained_model_name_or_path = local_path
+        return original_from_pretrained(pretrained_model_name_or_path, *args, **kwargs)
+
+    AutoTokenizer.from_pretrained = patched_from_pretrained
+
     # Check if a different model path is provided via environment variables
     encoder_path = os.environ.get("TADA_ENCODER_PATH", "HumeAI/tada-codec")
     model_path = os.environ.get("TADA_MODEL_PATH", "HumeAI/tada-1b")
-    
+
     try:
         print(f"Loading encoder from {encoder_path}")
         encoder = Encoder.from_pretrained(encoder_path, subfolder="encoder").to(device)
@@ -36,8 +51,9 @@ async def startup_event():
         print("Models loaded successfully.")
     except Exception as e:
         print(f"Error loading models: {e}")
-        # Allow the app to start even if models fail to load so we can return 500s 
+        # Allow the app to start even if models fail to load so we can return 500s
         # instead of failing completely, useful for debugging in Swarm.
+
 
 class GenerateRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize")
@@ -47,13 +63,14 @@ class GenerateRequest(BaseModel):
     num_extra_steps: int = Field(0, description="Number of extra steps for speech continuation")
     speed_up_factor: Optional[float] = Field(None, description="Speed up factor for the generated audio")
 
+
 def load_audio_from_base64(base64_str: str) -> tuple[torch.Tensor, int]:
     """Decodes a base64 audio string to a PyTorch tensor."""
     try:
         # Check for data URI prefix and remove it if present
         if base64_str.startswith("data:audio/"):
             base64_str = base64_str.split(",")[1]
-            
+
         audio_data = base64.b64decode(base64_str)
         audio_io = io.BytesIO(audio_data)
         audio_tensor, sample_rate = torchaudio.load(audio_io)
@@ -61,37 +78,37 @@ def load_audio_from_base64(base64_str: str) -> tuple[torch.Tensor, int]:
     except Exception as e:
         raise ValueError(f"Failed to decode base64 audio: {e}")
 
+
 @app.get("/health")
 def health_check():
     if model is None or encoder is None:
         return {"status": "unhealthy", "message": "Models not loaded", "device": device}
     return {"status": "healthy", "device": device}
 
+
 @app.post("/generate")
 async def generate_audio(request: GenerateRequest):
     if model is None or encoder is None:
         raise HTTPException(status_code=503, detail="Models are not loaded or currently initializing.")
-    
+
     try:
         # Handle conditioning / voice cloning
         prompt = None
         if request.prompt_audio_base64:
             if not request.prompt_text:
-                raise HTTPException(status_code=400, detail="prompt_text is required when prompt_audio_base64 is provided.")
-            
+                raise HTTPException(
+                    status_code=400, detail="prompt_text is required when prompt_audio_base64 is provided."
+                )
+
             try:
                 audio_tensor, sample_rate = load_audio_from_base64(request.prompt_audio_base64)
                 audio_tensor = audio_tensor.to(device)
-                
+
                 # Default to None, but will use language if we had initialized an encoder for it.
-                # Note: Currently the encoder object is fixed to the loaded language. 
+                # Note: Currently the encoder object is fixed to the loaded language.
                 # For a full multilingual API, we might need to load multiple encoders or reload.
-                
-                prompt = encoder(
-                    audio_tensor, 
-                    text=[request.prompt_text], 
-                    sample_rate=sample_rate
-                )
+
+                prompt = encoder(audio_tensor, text=[request.prompt_text], sample_rate=sample_rate)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Error processing prompt audio: {e}")
         else:
@@ -106,43 +123,43 @@ async def generate_audio(request: GenerateRequest):
                 default_text = "The examination and testimony of the experts, enabled the commission to conclude that five shots may have been fired."
                 prompt = encoder(audio_tensor, text=[default_text], sample_rate=sample_rate)
             else:
-                 raise HTTPException(status_code=400, detail="prompt_audio_base64 and prompt_text are required (no default sample found).")
+                raise HTTPException(
+                    status_code=400,
+                    detail="prompt_audio_base64 and prompt_text are required (no default sample found).",
+                )
 
         # Generate the audio
         with torch.no_grad():
-            output = model.generate(
-                prompt=prompt,
-                text=request.text,
-                num_extra_steps=request.num_extra_steps
-            )
-            
-        generated_audio = output.audio[0] # Take the first batch item
-        
+            output = model.generate(prompt=prompt, text=request.text, num_extra_steps=request.num_extra_steps)
+
+        generated_audio = output.audio[0]  # Take the first batch item
+
         if generated_audio is None:
             raise HTTPException(status_code=500, detail="Model failed to generate audio.")
 
         # Save to buffer
         buffer = io.BytesIO()
         torchaudio.save(
-            buffer, 
-            generated_audio.cpu().unsqueeze(0), # torchaudio expects [channels, time]
-            24000, # TADA default sample rate
-            format="wav"
+            buffer,
+            generated_audio.cpu().unsqueeze(0),  # torchaudio expects [channels, time]
+            24000,  # TADA default sample rate
+            format="wav",
         )
         buffer.seek(0)
-        
+
         return StreamingResponse(
-            buffer, 
-            media_type="audio/wav",
-            headers={"Content-Disposition": "attachment; filename=generated.wav"}
+            buffer, media_type="audio/wav", headers={"Content-Disposition": "attachment; filename=generated.wav"}
         )
-        
+
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error generating audio: {str(e)}")
+
 
 # Add a simple main block to support running with python api.py
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
