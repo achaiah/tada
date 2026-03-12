@@ -157,6 +157,38 @@ output = model.generate(
 )
 ```
 
+## Docker Deployment
+
+This repository includes a `Dockerfile` and `docker-compose.yml` to run the TADA model as a FastAPI web service, capable of scaling on a Docker Swarm cluster.
+
+### 1. Build the Image
+```bash
+docker build -t tada-api:latest .
+```
+
+### 2. Run Locally or Deploy to Swarm
+To run a single instance locally mapping port 8000:
+```bash
+docker run --gpus all -p 8000:8000 -v ./model_cache:/models tada-api:latest
+```
+
+Or deploy to a Docker Swarm:
+```bash
+docker stack deploy -c docker-compose.yml tada-stack
+```
+
+### 3. Usage
+The API exposes a `/generate` endpoint. All model weights (default: `HumeAI/tada-1b` and `HumeAI/tada-codec`) are downloaded on the first run and cached in the `./model_cache` volume to speed up subsequent starts.
+
+```bash
+curl -X POST "http://localhost:8000/generate" \
+     -H "Content-Type: application/json" \
+     -d '{"text": "Hello from the TADA API service!"}' \
+     --output generated.wav
+```
+
+For zero-shot voice cloning, provide the reference audio as base64 in `prompt_audio_base64` and the transcription in `prompt_text`.
+
 ## 📚 Citation
 
 If you use this project in your research, please cite our paper:
