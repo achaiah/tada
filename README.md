@@ -179,6 +179,16 @@ Or deploy to a Docker Swarm:
 HF_TOKEN="your_hf_token" docker stack deploy -c docker-compose.yml tada-stack
 ```
 
+#### Manual Model Download
+If you want to download the models manually rather than having the container fetch them at runtime, you can use the `huggingface-cli`:
+```bash
+export HF_HOME=./model_cache
+huggingface-cli login --token "your_hf_token"
+huggingface-cli download HumeAI/tada-1b
+huggingface-cli download HumeAI/tada-codec
+```
+Then, you can deploy the Docker container—it will find the cached models in `./model_cache` and won't need to download them itself!
+
 ### 3. Usage
 The API exposes a `/generate` endpoint. All model weights (default: `HumeAI/tada-1b` and `HumeAI/tada-codec`) are downloaded on the first run and cached in the `./model_cache` volume to speed up subsequent starts.
 
