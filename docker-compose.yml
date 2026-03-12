@@ -12,6 +12,9 @@ services:
       - CUDA_VISIBLE_DEVICES=all
       - TADA_ENCODER_PATH=HumeAI/tada-codec
       - TADA_MODEL_PATH=HumeAI/tada-1b
+      # Required to download the gated Llama models.
+      # You can pass this at runtime: HF_TOKEN=your_token docker stack deploy ...
+      - HF_TOKEN=${HF_TOKEN}
       # HF_HOME is already set in the Dockerfile to /models, but you can override here
       - HF_HOME=/models
     volumes:

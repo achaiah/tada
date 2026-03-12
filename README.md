@@ -167,14 +167,16 @@ docker build -t tada-api:latest .
 ```
 
 ### 2. Run Locally or Deploy to Swarm
+**Important**: The TADA models are based on Llama 3.2, which is a gated repository on Hugging Face. You must agree to the terms on the [Llama 3.2 repository](https://huggingface.co/meta-llama/Llama-3.2-1B) and provide a Hugging Face access token via the `HF_TOKEN` environment variable.
+
 To run a single instance locally mapping port 8000:
 ```bash
-docker run --gpus all -p 8000:8000 -v ./model_cache:/models tada-api:latest
+docker run --gpus all -e HF_TOKEN="your_hf_token" -p 8000:8000 -v ./model_cache:/models tada-api:latest
 ```
 
 Or deploy to a Docker Swarm:
 ```bash
-docker stack deploy -c docker-compose.yml tada-stack
+HF_TOKEN="your_hf_token" docker stack deploy -c docker-compose.yml tada-stack
 ```
 
 ### 3. Usage
