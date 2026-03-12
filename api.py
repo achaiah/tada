@@ -46,8 +46,8 @@ async def startup_event():
     try:
         print(f"Loading encoder from {encoder_path} in bfloat16")
         encoder = Encoder.from_pretrained(
-            encoder_path, subfolder="encoder", torch_dtype=torch.bfloat16
-        ).to(device)
+            encoder_path, subfolder="encoder"
+        ).to(torch.bfloat16).to(device)
         
         print(f"Loading model from {model_path} in bfloat16")
         model = TadaForCausalLM.from_pretrained(
