@@ -44,13 +44,20 @@ async def startup_event():
     model_path = os.environ.get("TADA_MODEL_PATH", "HumeAI/tada-1b")
 
     try:
-        print(f"Loading encoder from {encoder_path}")
-        encoder = Encoder.from_pretrained(encoder_path, subfolder="encoder").to(device)
-        print(f"Loading model from {model_path}")
-        model = TadaForCausalLM.from_pretrained(model_path).to(device)
+        print(f"Loading encoder from {encoder_path} in bfloat16")
+        encoder = Encoder.from_pretrained(
+            encoder_path, subfolder="encoder", torch_dtype=torch.bfloat16
+        ).to(device)
+        
+        print(f"Loading model from {model_path} in bfloat16")
+        model = TadaForCausalLM.from_pretrained(
+            model_path, torch_dtype=torch.bfloat16
+        ).to(device)
         print("Models loaded successfully.")
     except Exception as e:
+        import traceback
         print(f"Error loading models: {e}")
+        traceback.print_exc()
         # Allow the app to start even if models fail to load so we can return 500s
         # instead of failing completely, useful for debugging in Swarm.
 
