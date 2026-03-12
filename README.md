@@ -180,12 +180,12 @@ HF_TOKEN="your_hf_token" docker stack deploy -c docker-compose.yml tada-stack
 ```
 
 #### Manual Model Download
-If you want to download the models manually rather than having the container fetch them at runtime, you can use the `huggingface-cli`:
+If you want to download the models manually rather than having the container fetch them at runtime, you can use the `hf`:
 ```bash
 export HF_HOME=./model_cache
-huggingface-cli login --token "your_hf_token"
-huggingface-cli download HumeAI/tada-1b
-huggingface-cli download HumeAI/tada-codec
+hf login --token "your_hf_token"
+hf download HumeAI/tada-1b
+hf download HumeAI/tada-codec
 ```
 Then, you can deploy the Docker container—it will find the cached models in `./model_cache` and won't need to download them itself!
 
