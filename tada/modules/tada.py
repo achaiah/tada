@@ -176,9 +176,18 @@ class TadaForCausalLM(LlamaForCausalLM):
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
+        import os
         self = super().from_pretrained(pretrained_model_name_or_path, *args, **kwargs)
-        self._encoder = Encoder.from_pretrained("HumeAI/tada-codec", subfolder="encoder")
-        self._decoder = Decoder.from_pretrained("HumeAI/tada-codec", subfolder="decoder")
+        codec_path = os.environ.get("TADA_ENCODER_PATH", "HumeAI/tada-codec")
+        dtype = kwargs.get("torch_dtype", None)
+        
+        self._encoder = Encoder.from_pretrained(codec_path, subfolder="encoder")
+        self._decoder = Decoder.from_pretrained(codec_path, subfolder="decoder")
+        
+        if dtype is not None:
+            self._encoder = self._encoder.to(dtype)
+            self._decoder = self._decoder.to(dtype)
+            
         return self
 
     @property
