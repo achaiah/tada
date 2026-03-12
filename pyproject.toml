@@ -14,7 +14,7 @@ dynamic = ["version"]
 dependencies = [
     # "descript-audiotools @ git+ssh://git@github.com/HumeAI/descript-audiotools.git@master",
     "transformers>=4.57.1,<5",
-    "torch>=2.7.0,<2.8.0",
+    "torch>=2.0.0",
     "torchaudio",
     "torchvision",
     "descript-audio-codec>=1.0.0",

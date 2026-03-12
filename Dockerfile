@@ -23,6 +23,10 @@ RUN pip install --no-cache-dir --upgrade pip
 COPY api_requirements.txt /app/
 RUN pip install --no-cache-dir -r api_requirements.txt
 
+# Pre-install PyTorch components explicitly from the PyTorch CUDA index
+# to prevent generic pip from resolving mismatched torchvision versions
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
 # Copy source code and install the TADA package
 COPY . /app/
 
