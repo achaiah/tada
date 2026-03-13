@@ -109,7 +109,8 @@ async def generate_audio(request: GenerateRequest):
 
             try:
                 audio_tensor, sample_rate = load_audio_from_base64(request.prompt_audio_base64)
-                audio_tensor = audio_tensor.to(device)
+                # Ensure the audio tensor on GPU matches the model's dtype (bfloat16)
+                audio_tensor = audio_tensor.to(device).to(torch.bfloat16)
 
                 # Default to None, but will use language if we had initialized an encoder for it.
                 # Note: Currently the encoder object is fixed to the loaded language.
@@ -126,7 +127,8 @@ async def generate_audio(request: GenerateRequest):
             default_audio_path = os.path.join(os.path.dirname(__file__), "tada", "samples", "ljspeech.wav")
             if os.path.exists(default_audio_path):
                 audio_tensor, sample_rate = torchaudio.load(default_audio_path)
-                audio_tensor = audio_tensor.to(device)
+                # Ensure the audio tensor on GPU matches the model's dtype (bfloat16)
+                audio_tensor = audio_tensor.to(device).to(torch.bfloat16)
                 default_text = "The examination and testimony of the experts, enabled the commission to conclude that five shots may have been fired."
                 prompt = encoder(audio_tensor, text=[default_text], sample_rate=sample_rate)
             else:
