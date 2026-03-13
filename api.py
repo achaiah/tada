@@ -147,7 +147,7 @@ async def generate_audio(request: GenerateRequest):
         buffer = io.BytesIO()
         torchaudio.save(
             buffer,
-            generated_audio.cpu().unsqueeze(0),  # torchaudio expects [channels, time]
+            generated_audio.to(torch.float32).cpu().unsqueeze(0),  # torchaudio expects [channels, time] in float32
             24000,  # TADA default sample rate
             format="wav",
         )
