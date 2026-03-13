@@ -45,17 +45,14 @@ async def startup_event():
 
     try:
         print(f"Loading encoder from {encoder_path} in bfloat16")
-        encoder = Encoder.from_pretrained(
-            encoder_path, subfolder="encoder"
-        ).to(torch.bfloat16).to(device)
-        
+        encoder = Encoder.from_pretrained(encoder_path, subfolder="encoder").to(torch.bfloat16).to(device)
+
         print(f"Loading model from {model_path} in bfloat16")
-        model = TadaForCausalLM.from_pretrained(
-            model_path, torch_dtype=torch.bfloat16
-        ).to(device)
+        model = TadaForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16).to(device)
         print("Models loaded successfully.")
     except Exception as e:
         import traceback
+
         print(f"Error loading models: {e}")
         traceback.print_exc()
         # Allow the app to start even if models fail to load so we can return 500s
@@ -99,46 +96,46 @@ async def generate_audio(request: GenerateRequest):
         raise HTTPException(status_code=503, detail="Models are not loaded or currently initializing.")
 
     try:
-        # Handle conditioning / voice cloning
-        prompt = None
-        if request.prompt_audio_base64:
-            if not request.prompt_text:
-                raise HTTPException(
-                    status_code=400, detail="prompt_text is required when prompt_audio_base64 is provided."
-                )
-
-            try:
-                audio_tensor, sample_rate = load_audio_from_base64(request.prompt_audio_base64)
-                # Ensure the audio tensor on GPU matches the model's dtype (bfloat16)
-                audio_tensor = audio_tensor.to(device).to(torch.bfloat16)
-
-                # Default to None, but will use language if we had initialized an encoder for it.
-                # Note: Currently the encoder object is fixed to the loaded language.
-                # For a full multilingual API, we might need to load multiple encoders or reload.
-
-                prompt = encoder(audio_tensor, text=[request.prompt_text], sample_rate=sample_rate)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Error processing prompt audio: {e}")
-        else:
-            # If no prompt audio is provided, we need a default prompt to initialize generation.
-            # TADA typically requires some acoustic features to kick off.
-            # We'll use a silent prompt or check if the model supports unconditional generation.
-            # Here we load a default sample if no prompt is provided.
-            default_audio_path = os.path.join(os.path.dirname(__file__), "tada", "samples", "ljspeech.wav")
-            if os.path.exists(default_audio_path):
-                audio_tensor, sample_rate = torchaudio.load(default_audio_path)
-                # Ensure the audio tensor on GPU matches the model's dtype (bfloat16)
-                audio_tensor = audio_tensor.to(device).to(torch.bfloat16)
-                default_text = "The examination and testimony of the experts, enabled the commission to conclude that five shots may have been fired."
-                prompt = encoder(audio_tensor, text=[default_text], sample_rate=sample_rate)
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail="prompt_audio_base64 and prompt_text are required (no default sample found).",
-                )
-
         # Generate the audio
         with torch.no_grad():
+            # Handle conditioning / voice cloning
+            prompt = None
+            if request.prompt_audio_base64:
+                if not request.prompt_text:
+                    raise HTTPException(
+                        status_code=400, detail="prompt_text is required when prompt_audio_base64 is provided."
+                    )
+
+                try:
+                    audio_tensor, sample_rate = load_audio_from_base64(request.prompt_audio_base64)
+                    # Ensure the audio tensor on GPU matches the model's dtype (bfloat16)
+                    audio_tensor = audio_tensor.to(device).to(torch.bfloat16)
+
+                    # Default to None, but will use language if we had initialized an encoder for it.
+                    # Note: Currently the encoder object is fixed to the loaded language.
+                    # For a full multilingual API, we might need to load multiple encoders or reload.
+
+                    prompt = encoder(audio_tensor, text=[request.prompt_text], sample_rate=sample_rate)
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Error processing prompt audio: {e}")
+            else:
+                # If no prompt audio is provided, we need a default prompt to initialize generation.
+                # TADA typically requires some acoustic features to kick off.
+                # We'll use a silent prompt or check if the model supports unconditional generation.
+                # Here we load a default sample if no prompt is provided.
+                default_audio_path = os.path.join(os.path.dirname(__file__), "tada", "samples", "ljspeech.wav")
+                if os.path.exists(default_audio_path):
+                    audio_tensor, sample_rate = torchaudio.load(default_audio_path)
+                    # Ensure the audio tensor on GPU matches the model's dtype (bfloat16)
+                    audio_tensor = audio_tensor.to(device).to(torch.bfloat16)
+                    default_text = "The examination and testimony of the experts, enabled the commission to conclude that five shots may have been fired."
+                    prompt = encoder(audio_tensor, text=[default_text], sample_rate=sample_rate)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="prompt_audio_base64 and prompt_text are required (no default sample found).",
+                    )
+
             output = model.generate(prompt=prompt, text=request.text, num_extra_steps=request.num_extra_steps)
 
         generated_audio = output.audio[0]  # Take the first batch item
